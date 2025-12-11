@@ -69,15 +69,32 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('main.index') }}">Dashboard</a>
                     </li>
+                    {% if current_user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('main.input_page') }}">Input</a>
                     </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link text-muted" href="{{ url_for('main.login') }}" title="Login required">
+                            Input 🔒
+                        </a>
+                    </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('main.insights') }}">Analytics</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('main.reports') }}">Reports</a>
                     </li>
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.logout') }}">Logout (Admin)</a>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.login') }}">Login</a>
+                    </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>

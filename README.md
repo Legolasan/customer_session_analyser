@@ -21,6 +21,7 @@ This application provides a comprehensive solution for:
 - 🌍 Region and source/destination distribution analysis
 - 🔌 RESTful API for integration
 - 🗄️ Database-backed data persistence
+- 🔐 Authentication system (admin-only data input, public read access)
 
 ## Project Structure
 
@@ -32,12 +33,14 @@ customer_session_analyzer/
 │   ├── parser.py            # Text parsing logic for session data
 │   ├── routes.py            # Flask routes and API endpoints
 │   ├── analytics.py         # Analytics and insights generation
+│   ├── auth.py              # Authentication helpers (User class)
 │   └── templates/           # Jinja2 HTML templates
 │       ├── base.html        # Base template
 │       ├── index.html       # Home/dashboard page
 │       ├── input.html       # Form-based input page
 │       ├── insights.html    # Analytics and visualizations
-│       └── reports.html     # Tabular reports
+│       ├── reports.html     # Tabular reports
+│       └── login.html       # Login page
 ├── wsgi.py                  # Application entry point (WSGI)
 ├── requirements.txt         # Python dependencies
 ├── Procfile                 # Railway deployment configuration
@@ -84,7 +87,11 @@ customer_session_analyzer/
    ```env
    SECRET_KEY=your-secret-key-here
    DATABASE_URL=sqlite:///customer_sessions.db
+   ADMIN_USERNAME=admin
+   ADMIN_PASSWORD=your-secure-password
    ```
+   
+   **Note**: For local development, you can skip `ADMIN_USERNAME` and `ADMIN_PASSWORD` if you don't need authentication. However, input features will be inaccessible without these credentials.
 
 5. **Run the application**
    ```bash
@@ -124,11 +131,14 @@ By default, the application uses SQLite for local development. The database file
      ```
      SECRET_KEY=<generate-a-secure-random-string>
      RAILWAY_ENVIRONMENT=production
+     ADMIN_USERNAME=<your-admin-username>
+     ADMIN_PASSWORD=<your-secure-password>
      ```
    - To generate a secure SECRET_KEY, run:
      ```bash
      python -c "import secrets; print(secrets.token_hex(32))"
      ```
+   - **Important**: Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` to enable authentication. Without these, input features will be inaccessible.
 
 4. **Deploy**
    - Railway will automatically detect the `Procfile` and deploy your application
@@ -169,20 +179,22 @@ flask db upgrade
 
 ### Web Pages
 
-- `GET /` - Home page dashboard
-- `GET /input` - Form-based input page
-- `GET /insights` - Analytics and visualizations page
-- `GET /reports` - Tabular reports page
+- `GET /` - Home page dashboard (public)
+- `GET /login` - Login page
+- `GET /logout` - Logout (requires authentication)
+- `GET /input` - Form-based input page (requires authentication)
+- `GET /insights` - Analytics and visualizations page (public)
+- `GET /reports` - Tabular reports page (public)
 
 ### REST API
 
-- `POST /upload` - Upload session data via form (text format)
-- `POST /form-upload` - Upload session data via form fields
-- `POST /api/upload` - API endpoint for uploading session data (JSON)
-- `GET /api/insights` - Get analytics data (JSON)
-- `GET /api/sessions` - Get all sessions (JSON)
-- `GET /api/sessions/<id>` - Get a specific session by ID
-- `DELETE /api/sessions/<id>` - Delete a session by ID
+- `POST /upload` - Upload session data via form (text format) - **Requires authentication**
+- `POST /form-upload` - Upload session data via form fields - **Requires authentication**
+- `POST /api/upload` - API endpoint for uploading session data (JSON) - **Requires authentication**
+- `GET /api/insights` - Get analytics data (JSON) - **Public**
+- `GET /api/sessions` - Get all sessions (JSON) - **Public**
+- `GET /api/sessions/<id>` - Get a specific session by ID - **Public**
+- `DELETE /api/sessions/<id>` - Delete a session by ID - **Requires authentication**
 
 ### Example API Usage
 
@@ -233,6 +245,7 @@ Observation: Additional notes or observations here
 ## Technology Stack
 
 - **Backend**: Flask 3.0.0
+- **Authentication**: Flask-Login 0.6.3
 - **Database**: SQLAlchemy (SQLite for local, PostgreSQL for production)
 - **Migrations**: Flask-Migrate
 - **Visualization**: Plotly
@@ -248,6 +261,8 @@ Observation: Additional notes or observations here
 | `DATABASE_URL` | Database connection string | `sqlite:///customer_sessions.db` | Auto-set by Railway |
 | `PORT` | Server port | `5007` | Auto-set by Railway |
 | `RAILWAY_ENVIRONMENT` | Environment identifier | Not set | Set to `production` |
+| `ADMIN_USERNAME` | Admin username for authentication | `admin` | Yes (for input features) |
+| `ADMIN_PASSWORD` | Admin password for authentication | Not set | Yes (for input features) |
 
 ## Troubleshooting
 
@@ -265,6 +280,49 @@ The application automatically uses Railway's `PORT` environment variable. No man
 ### Debug Mode
 
 Debug mode is automatically disabled in production when `RAILWAY_ENVIRONMENT=production` is set.
+
+### Authentication Issues
+
+If you cannot access input features:
+- Verify that `ADMIN_USERNAME` and `ADMIN_PASSWORD` are set in environment variables
+- Check that you're using the correct credentials
+- Ensure cookies are enabled in your browser
+- Try logging out and logging back in
+
+**Note**: Dashboard, Insights, and Reports are publicly accessible. Only data input and modification features require authentication.
+
+## Authentication
+
+The application uses Flask-Login for session-based authentication. 
+
+### Access Levels
+
+- **Public Access**: Dashboard, Insights, Reports, and read-only API endpoints
+- **Admin Access Required**: Input pages, data upload endpoints, and delete operations
+
+### Setting Up Authentication
+
+1. **Set Environment Variables**:
+   ```env
+   ADMIN_USERNAME=your-username
+   ADMIN_PASSWORD=your-secure-password
+   ```
+
+2. **Login**:
+   - Navigate to the Login page (link in navbar)
+   - Enter your admin credentials
+   - You'll be redirected to the dashboard after successful login
+
+3. **Logout**:
+   - Click "Logout (Admin)" in the navbar
+   - Your session will be cleared
+
+### Security Notes
+
+- Passwords are stored in environment variables (never in code)
+- Sessions are managed via secure cookies
+- API endpoints return JSON 401 errors when authentication is required
+- Input features are visually disabled for non-authenticated users
 
 ## License
 

@@ -3,13 +3,45 @@ Flask routes for the application.
 """
 
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
+from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime
 from app import db
 from app.models import CustomerSession
 from app.parser import parse_session_data
 from app.analytics import get_insights
+from app.auth import User
 
 main_bp = Blueprint('main', __name__)
+
+
+@main_bp.route('/login', methods=['GET', 'POST'])
+def login():
+    """Login page."""
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        
+        if User.verify_password(username, password):
+            user = User(username)
+            login_user(user)
+            next_page = request.args.get('next')
+            if next_page:
+                return redirect(next_page)
+            flash('Login successful!', 'success')
+            return redirect(url_for('main.index'))
+        else:
+            flash('Invalid username or password', 'error')
+    
+    return render_template('login.html')
+
+
+@main_bp.route('/logout')
+@login_required
+def logout():
+    """Logout user."""
+    logout_user()
+    flash('You have been logged out', 'info')
+    return redirect(url_for('main.index'))
 
 
 @main_bp.route('/')
@@ -19,12 +51,14 @@ def index():
 
 
 @main_bp.route('/input')
+@login_required
 def input_page():
     """Form-based input page."""
     return render_template('input.html')
 
 
 @main_bp.route('/form-upload', methods=['POST'])
+@login_required
 def form_upload():
     """Handle form-based data upload."""
     try:
@@ -85,6 +119,7 @@ def form_upload():
 
 
 @main_bp.route('/upload', methods=['POST'])
+@login_required
 def upload():
     """Handle data upload."""
     try:
@@ -155,6 +190,7 @@ def upload():
 
 
 @main_bp.route('/api/upload', methods=['POST'])
+@login_required
 def api_upload():
     """API endpoint for uploading data."""
     try:
@@ -248,6 +284,7 @@ def get_session(session_id):
 
 
 @main_bp.route('/api/sessions/<int:session_id>', methods=['DELETE'])
+@login_required
 def delete_session(session_id):
     """Delete a session record."""
     try:
