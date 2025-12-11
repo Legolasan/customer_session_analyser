@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Customer Session Analyzer{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+        height: 100%;
+    }
+    .dashboard-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 20px;
+    }
+    .stat-card.success {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+    .stat-card.info {
+        background: linear-gradient(135deg, #3494E6 0%, #EC6EAD 100%);
+    }
+    .stat-card.warning {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .action-card {
+        text-align: center;
+        padding: 30px;
+        cursor: pointer;
+        text-decoration: none;
+        color: inherit;
+    }
+    .action-card:hover {
+        text-decoration: none;
+        color: inherit;
+    }
+    .action-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-5 mb-3">📊 Dashboard</h1>
+        <p class="lead text-muted">Welcome to Customer Session Analyzer</p>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row mb-5" id="quick-stats">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-label">Total Records</div>
+            <div class="stat-value" id="total-records">-</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card success">
+            <div class="stat-label">Total Customers</div>
+            <div class="stat-value" id="total-customers">-</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card info">
+            <div class="stat-label">Total Sessions</div>
+            <div class="stat-value" id="total-sessions">-</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <div class="stat-label">Duplicate Customers</div>
+            <div class="stat-value" id="duplicate-customers">-</div>
+        </div>
+    </div>
+</div>
+
+<!-- Action Cards -->
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <a href="{{ url_for('main.input_page') }}" class="action-card">
+            <div class="card dashboard-card">
+                <div class="card-body action-card">
+                    <div class="action-icon">📝</div>
+                    <h4 class="card-title">Input Data</h4>
+                    <p class="card-text text-muted">Add new customer session data using the structured form</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4 mb-4">
+        <a href="{{ url_for('main.insights') }}" class="action-card">
+            <div class="card dashboard-card">
+                <div class="card-body action-card">
+                    <div class="action-icon">📈</div>
+                    <h4 class="card-title">Analytics</h4>
+                    <p class="card-text text-muted">View visualizations and insights from your session data</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4 mb-4">
+        <a href="{{ url_for('main.reports') }}" class="action-card">
+            <div class="card dashboard-card">
+                <div class="card-body action-card">
+                    <div class="action-icon">📋</div>
+                    <h4 class="card-title">Reports</h4>
+                    <p class="card-text text-muted">Browse detailed tabular reports of all sessions</p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- Legacy Upload Option -->
+<div class="row mt-5">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">📤 Alternative: Text Upload</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Prefer to paste formatted text? Use this option instead.</p>
+                <form method="POST" action="{{ url_for('main.upload') }}">
+                    <div class="mb-3">
+                        <label for="session_data" class="form-label">Session Data</label>
+                        <textarea 
+                            class="form-control" 
+                            id="session_data" 
+                            name="session_data" 
+                            rows="8" 
+                            placeholder="Customer: mediconas.cz [15 mins]&#10;Region: EU&#10;Sessions: 5&#10;Source: FB Pages&#10;Destination: BQ&#10;Observation: &#10;Customer was able to configure the source FB Pages, successfully."
+                            required></textarea>
+                        <div class="form-text">
+                            Paste the session data in the format shown above.
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-outline-primary">Upload Text Format</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Load quick stats on page load
+    fetch('/api/insights')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('total-records').textContent = data.total_records || 0;
+            document.getElementById('total-customers').textContent = data.total_customers || 0;
+            document.getElementById('total-sessions').textContent = data.total_sessions_reviewed || 0;
+            document.getElementById('duplicate-customers').textContent = data.duplicate_customers?.length || 0;
+        })
+        .catch(error => console.error('Error loading stats:', error));
+</script>
+{% endblock %}
+

@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Customer Session Analyzer{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+    }
+    .report-header h2 {
+        margin: 0;
+        font-weight: 600;
+    }
+    .table {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .table thead {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    .table thead th {
+        border: none;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+    }
+    .table tbody tr:hover {
+        background-color: #f8f9fa;
+        transition: background-color 0.2s;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="report-header">
+    <h2>📋 Tabular Reports</h2>
+    <p class="mb-0">Detailed view of all customer session records</p>
+</div>
+
+<!-- Summary Statistics -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Summary Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Total Sessions Reviewed:</strong> {{ insights.total_sessions_reviewed }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Total Customers:</strong> {{ insights.total_customers }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Total Records:</strong> {{ insights.total_records }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Unique Sources:</strong> {{ insights.source_distribution|length }}
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-3">
+                        <strong>Unique Destinations:</strong> {{ insights.destination_distribution|length }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Unique Regions:</strong> {{ insights.region_distribution|length }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Duplicate Customers:</strong> {{ insights.duplicate_customers|length }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Total Time Spent:</strong> 
+                        {% if insights.total_time_consumed_minutes %}
+                            {{ insights.total_time_consumed_minutes }} mins ({{ insights.total_time_consumed_hours }} hrs)
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Daily Time Consumed Report -->
+{% if insights.daily_time_consumed %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>📊 Daily Time Spent Watching User Sessions</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Sessions Reviewed</th>
+                                <th>Total Minutes</th>
+                                <th>Total Hours</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for day_data in insights.daily_time_consumed %}
+                            <tr>
+                                <td><strong>{{ day_data.date }}</strong></td>
+                                <td>{{ day_data.session_count }} session{% if day_data.session_count != 1 %}s{% endif %}</td>
+                                <td><span class="badge bg-primary">{{ day_data.total_minutes }} min{% if day_data.total_minutes != 1 %}s{% endif %}</span></td>
+                                <td><span class="badge bg-success">{{ day_data.hours }} hr{% if day_data.hours != 1 %}s{% endif %}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-info">
+                                <td><strong>Total</strong></td>
+                                <td><strong>{{ insights.sessions_with_time_consumed }} session{% if insights.sessions_with_time_consumed != 1 %}s{% endif %}</strong></td>
+                                <td><strong><span class="badge bg-primary">{{ insights.total_time_consumed_minutes }} min{% if insights.total_time_consumed_minutes != 1 %}s{% endif %}</span></strong></td>
+                                <td><strong><span class="badge bg-success">{{ insights.total_time_consumed_hours }} hr{% if insights.total_time_consumed_hours != 1 %}s{% endif %}</span></strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- All Sessions Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>All Session Records</h5>
+        <span class="badge bg-primary">{{ sessions|length }} records</span>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover" id="sessions-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Customer</th>
+                        <th>Region</th>
+                        <th>Sessions</th>
+                        <th>Source</th>
+                        <th>Destination</th>
+                        <th>Time Consumed</th>
+                        <th>Uploaded At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in sessions %}
+                    <tr>
+                        <td>{{ session.id }}</td>
+                        <td>{{ session.customer }}</td>
+                        <td>{{ session.region }}</td>
+                        <td>{{ session.sessions }}</td>
+                        <td>{{ session.source }}</td>
+                        <td>{{ session.destination }}</td>
+                        <td>
+                            {% if session.time_consumed %}
+                                <span class="badge bg-info">{{ session.time_consumed }} min{% if session.time_consumed != 1 %}s{% endif %}</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ session.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') if session.uploaded_at else 'N/A' }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick="viewObservation({{ session.id }})">
+                                View
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteSession({{ session.id }})">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Observation Modal -->
+<div class="modal fade" id="observationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Observation Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="observation-loading" class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Loading observation...</p>
+                </div>
+                <div id="observation-text" style="display: none;">
+                    <pre class="bg-light p-3 rounded" style="white-space: pre-wrap; word-wrap: break-word; font-family: inherit; font-size: 0.95rem; line-height: 1.6;"></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function viewObservation(sessionId) {
+        // Show loading state
+        document.getElementById('observation-loading').style.display = 'block';
+        document.getElementById('observation-text').style.display = 'none';
+        
+        // Show modal first
+        var modal = new bootstrap.Modal(document.getElementById('observationModal'));
+        modal.show();
+        
+        // Fetch full observation from API
+        fetch(`/api/sessions/${sessionId}`)
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading, show observation
+                document.getElementById('observation-loading').style.display = 'none';
+                const observationText = document.querySelector('#observation-text pre');
+                
+                if (data.observation && data.observation.trim()) {
+                    observationText.textContent = data.observation;
+                } else {
+                    observationText.textContent = 'No observation provided.';
+                }
+                
+                document.getElementById('observation-text').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error fetching observation:', error);
+                document.getElementById('observation-loading').style.display = 'none';
+                const observationText = document.querySelector('#observation-text pre');
+                observationText.textContent = 'Error loading observation. Please try again.';
+                document.getElementById('observation-text').style.display = 'block';
+            });
+    }
+
+    function deleteSession(id) {
+        if (!confirm('Are you sure you want to delete this session?')) {
+            return;
+        }
+        
+        fetch(`/api/sessions/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error deleting session: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            alert('Error deleting session: ' + error);
+        });
+    }
+</script>
+{% endblock %}
+

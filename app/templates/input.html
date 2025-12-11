@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Input Session Data - Customer Session Analyzer{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 25px;
+        margin-bottom: 25px;
+        border-left: 4px solid #007bff;
+    }
+    .form-section h5 {
+        color: #007bff;
+        margin-bottom: 20px;
+        font-weight: 600;
+    }
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 8px;
+    }
+    .form-control:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+    .help-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+    .submit-btn {
+        padding: 12px 40px;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    .preview-section {
+        background: #e7f3ff;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 30px;
+        border: 1px solid #b3d9ff;
+    }
+    .preview-section h6 {
+        color: #0056b3;
+        margin-bottom: 15px;
+    }
+    .preview-text {
+        background: white;
+        padding: 15px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        white-space: pre-wrap;
+        border: 1px solid #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 offset-lg-1">
+        <div class="page-header mb-4">
+            <h2 class="mb-2">📝 Input Customer Session Data</h2>
+            <p class="text-muted">Fill in the form below to add a new customer session record. All fields marked with * are required.</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('main.form_upload') }}" id="sessionForm">
+            <!-- Customer Information Section -->
+            <div class="form-section">
+                <h5>👤 Customer Information</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="customer" class="form-label required-field">Customer</label>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="customer" 
+                            name="customer" 
+                            placeholder="e.g., mediconas.cz"
+                            required
+                        >
+                        <div class="help-text">Enter the customer name or domain</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="region" class="form-label required-field">Region</label>
+                        <select class="form-control" id="region" name="region" required>
+                            <option value="">Select Region</option>
+                            <option value="EU">EU</option>
+                            <option value="US">US</option>
+                            <option value="US2">US2</option>
+                            <option value="India">India</option>
+                            <option value="AU">AU</option>
+                            <option value="Asia">Asia</option>
+                            <option value="Preview">Preview</option>
+                            <option value="Preprod">Preprod</option>
+                            <option value="Test">Test</option>
+                        </select>
+                        <div class="help-text">Select the region where the customer is located</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Session Details Section -->
+            <div class="form-section">
+                <h5>📊 Session Details</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="sessions" class="form-label required-field">Number of Sessions</label>
+                        <input 
+                            type="number" 
+                            class="form-control" 
+                            id="sessions" 
+                            name="sessions" 
+                            placeholder="e.g., 5"
+                            min="1"
+                            required
+                        >
+                        <div class="help-text">Enter the number of sessions reviewed</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="time_consumed" class="form-label">Time Consumed (minutes)</label>
+                        <select class="form-control" id="time_consumed" name="time_consumed">
+                            <option value="">Select time (optional)</option>
+                            {% for i in range(1, 121) %}
+                            <option value="{{ i }}">{{ i }} min{% if i != 1 %}s{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="help-text">Optional: Select the time consumed for this session in minutes</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Source & Destination Section -->
+            <div class="form-section">
+                <h5>🔗 Source & Destination</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="source" class="form-label required-field">Source</label>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="source" 
+                            name="source" 
+                            placeholder="e.g., FB Pages, MySQL, PostgreSQL"
+                            required
+                        >
+                        <div class="help-text">Enter the data source name</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="destination" class="form-label required-field">Destination</label>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="destination" 
+                            name="destination" 
+                            placeholder="e.g., BQ, Snowflake, Redshift"
+                            required
+                        >
+                        <div class="help-text">Enter the destination name</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Observation Section -->
+            <div class="form-section">
+                <h5>📝 Observation</h5>
+                <div class="row">
+                    <div class="col-md-12">
+                        <label for="observation" class="form-label">Observation Notes</label>
+                        <textarea 
+                            class="form-control" 
+                            id="observation" 
+                            name="observation" 
+                            rows="6"
+                            placeholder="Enter detailed observations about the session, customer configuration, pipeline status, and any issues encountered..."
+                        ></textarea>
+                        <div class="help-text">Optional: Add any observations, notes, or findings from the session</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview Section -->
+            <div class="preview-section">
+                <h6>📋 Preview Format</h6>
+                <div class="preview-text" id="previewText">Fill in the form above to see the preview...</div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="text-center mt-4 mb-5">
+                <button type="submit" class="btn btn-primary btn-lg submit-btn">
+                    <i class="bi bi-upload"></i> Submit Session Data
+                </button>
+                <button type="reset" class="btn btn-secondary btn-lg ms-3" onclick="resetPreview()">
+                    <i class="bi bi-arrow-counterclockwise"></i> Reset Form
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Update preview as user types
+    const formFields = ['customer', 'region', 'sessions', 'source', 'destination', 'time_consumed', 'observation'];
+    
+    formFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.addEventListener('input', updatePreview);
+            field.addEventListener('change', updatePreview);
+        }
+    });
+
+    function updatePreview() {
+        const customer = document.getElementById('customer').value || '[Customer]';
+        const region = document.getElementById('region').value || '[Region]';
+        const sessions = document.getElementById('sessions').value || '[Sessions]';
+        const source = document.getElementById('source').value || '[Source]';
+        const destination = document.getElementById('destination').value || '[Destination]';
+        const timeConsumed = document.getElementById('time_consumed').value || '';
+        const observation = document.getElementById('observation').value || '[Observation notes...]';
+
+        let preview = `Customer: ${customer}${timeConsumed ? ' [' + timeConsumed + ' mins]' : ''}
+Region: ${region}
+Sessions: ${sessions}
+Source: ${source}
+Destination: ${destination}`;
+        
+        if (timeConsumed) {
+            preview += `\nTime Consumed: ${timeConsumed} mins`;
+        }
+        
+        preview += `\nObservation: ${observation}`;
+
+        document.getElementById('previewText').textContent = preview;
+    }
+
+    function resetPreview() {
+        setTimeout(() => {
+            document.getElementById('previewText').textContent = 'Fill in the form above to see the preview...';
+        }, 100);
+    }
+
+    // Form validation
+    document.getElementById('sessionForm').addEventListener('submit', function(e) {
+        const requiredFields = ['customer', 'region', 'sessions', 'source', 'destination'];
+        let isValid = true;
+        
+        requiredFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (!field.value.trim()) {
+                isValid = false;
+                field.classList.add('is-invalid');
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+
+        if (!isValid) {
+            e.preventDefault();
+            alert('Please fill in all required fields.');
+        }
+    });
+</script>
+{% endblock %}
+

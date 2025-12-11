@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics & Visualizations - Customer Session Analyzer{% endblock %}
+
+{% block extra_css %}
+<style>
+    .insight-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+    }
+    .insight-header h2 {
+        margin: 0;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="insight-header">
+    <h2>📈 Analytics & Visualizations</h2>
+    <p class="mb-0">Comprehensive insights from your customer session data</p>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Total Sessions</h5>
+                <h2 class="text-primary">{{ insights.total_sessions_reviewed }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Total Customers</h5>
+                <h2 class="text-success">{{ insights.total_customers }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Total Records</h5>
+                <h2 class="text-info">{{ insights.total_records }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Duplicate Customers</h5>
+                <h2 class="text-warning">{{ insights.duplicate_customers|length }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Time Consumed Stats -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Sessions with Time Data</h5>
+                <h2 class="text-info">{{ insights.sessions_with_time_consumed }}</h2>
+                <p class="text-muted mb-0">Out of {{ insights.total_records }} total records</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Total Time Spent</h5>
+                <h2 class="text-success">
+                    {% if insights.total_time_consumed_minutes %}
+                        {{ insights.total_time_consumed_minutes }}<small class="text-muted" style="font-size: 0.6em"> mins</small>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </h2>
+                <p class="text-muted mb-0">
+                    {% if insights.total_time_consumed_hours %}
+                        ({{ insights.total_time_consumed_hours }} hours)
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Time Consumed Distribution</h5>
+                {% if insights.time_consumed_distribution %}
+                    <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Minutes</th>
+                                    <th>Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for time, count in insights.time_consumed_distribution.items() %}
+                                <tr>
+                                    <td>{{ time }} min{% if time != 1 %}s{% endif %}</td>
+                                    <td><span class="badge bg-primary">{{ count }}</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0">No time consumed data available</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Region Distribution Chart -->
+<div class="chart-container">
+    <h4>Region Distribution</h4>
+    <div id="region-chart"></div>
+</div>
+
+<!-- Source Distribution Chart -->
+<div class="chart-container">
+    <h4>Source Distribution</h4>
+    <div id="source-chart"></div>
+</div>
+
+<!-- Destination Distribution Chart -->
+<div class="chart-container">
+    <h4>Destination Distribution</h4>
+    <div id="destination-chart"></div>
+</div>
+
+<!-- Uploads Over Time Chart -->
+<div class="chart-container">
+    <h4>Uploads Over Time</h4>
+    <div id="uploads-chart"></div>
+</div>
+
+<!-- Time Consumed Chart -->
+{% if insights.time_consumed_distribution %}
+<div class="chart-container">
+    <h4>Time Consumed Distribution</h4>
+    <div id="time-consumed-chart"></div>
+</div>
+{% endif %}
+
+<!-- Daily Time Consumed Chart -->
+{% if insights.daily_time_consumed %}
+<div class="chart-container">
+    <h4>Daily Time Spent Watching Sessions</h4>
+    <div id="daily-time-chart"></div>
+</div>
+{% endif %}
+
+<!-- Duplicate Customers Table -->
+{% if insights.duplicate_customers %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h5>Duplicate Customers</h5>
+    </div>
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Customer</th>
+                    <th>Occurrences</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dup in insights.duplicate_customers %}
+                <tr>
+                    <td>{{ dup.customer }}</td>
+                    <td>{{ dup.occurrences }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<script>
+    // Region Distribution Chart
+    var regionData = {{ insights.region_distribution | tojson }};
+    var regionTrace = {
+        x: Object.keys(regionData),
+        y: Object.values(regionData),
+        type: 'bar',
+        marker: { color: '#007bff' }
+    };
+    Plotly.newPlot('region-chart', [regionTrace], {
+        title: 'Sessions by Region',
+        xaxis: { title: 'Region' },
+        yaxis: { title: 'Count' }
+    });
+
+    // Source Distribution Chart
+    var sourceData = {{ insights.source_distribution | tojson }};
+    var sourceTrace = {
+        labels: Object.keys(sourceData),
+        values: Object.values(sourceData),
+        type: 'pie'
+    };
+    Plotly.newPlot('source-chart', [sourceTrace], {
+        title: 'Sessions by Source'
+    });
+
+    // Destination Distribution Chart
+    var destData = {{ insights.destination_distribution | tojson }};
+    var destTrace = {
+        labels: Object.keys(destData),
+        values: Object.values(destData),
+        type: 'pie'
+    };
+    Plotly.newPlot('destination-chart', [destTrace], {
+        title: 'Sessions by Destination'
+    });
+
+    // Uploads Over Time Chart
+    var uploadsData = {{ insights.uploads_by_date | tojson }};
+    var uploadsTrace = {
+        x: uploadsData.map(d => d.date),
+        y: uploadsData.map(d => d.count),
+        type: 'scatter',
+        mode: 'lines+markers',
+        marker: { color: '#28a745' }
+    };
+    Plotly.newPlot('uploads-chart', [uploadsTrace], {
+        title: 'Uploads Over Time',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Number of Uploads' }
+    });
+
+    // Time Consumed Distribution Chart
+    {% if insights.time_consumed_distribution %}
+    var timeData = {{ insights.time_consumed_distribution | tojson }};
+    var timeTrace = {
+        x: Object.keys(timeData).map(k => k + ' mins'),
+        y: Object.values(timeData),
+        type: 'bar',
+        marker: { color: '#17a2b8' }
+    };
+    Plotly.newPlot('time-consumed-chart', [timeTrace], {
+        title: 'Sessions by Time Consumed',
+        xaxis: { title: 'Time Consumed (minutes)' },
+        yaxis: { title: 'Number of Sessions' }
+    });
+    {% endif %}
+
+    // Daily Time Consumed Chart
+    {% if insights.daily_time_consumed %}
+    var dailyTimeData = {{ insights.daily_time_consumed | tojson }};
+    var dailyTimeTrace = {
+        x: dailyTimeData.map(d => d.date),
+        y: dailyTimeData.map(d => d.total_minutes),
+        type: 'bar',
+        marker: { color: '#28a745' },
+        text: dailyTimeData.map(d => d.total_minutes + ' mins (' + d.session_count + ' sessions)'),
+        textposition: 'outside'
+    };
+    Plotly.newPlot('daily-time-chart', [dailyTimeTrace], {
+        title: 'Minutes Spent Watching Sessions Per Day',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Total Minutes' }
+    });
+    {% endif %}
+</script>
+{% endblock %}
+
