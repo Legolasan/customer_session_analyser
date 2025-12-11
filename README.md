@@ -38,7 +38,7 @@ customer_session_analyzer/
 │       ├── input.html       # Form-based input page
 │       ├── insights.html    # Analytics and visualizations
 │       └── reports.html     # Tabular reports
-├── app.py                   # Application entry point
+├── wsgi.py                  # Application entry point (WSGI)
 ├── requirements.txt         # Python dependencies
 ├── Procfile                 # Railway deployment configuration
 ├── .gitignore              # Git ignore rules
@@ -88,7 +88,7 @@ customer_session_analyzer/
 
 5. **Run the application**
    ```bash
-   python app.py
+   python wsgi.py
    ```
 
    The application will be available at `http://localhost:5007`
@@ -147,12 +147,12 @@ By default, the application uses SQLite for local development. The database file
 
 - **`Procfile`**: Specifies how Railway should run your application
   ```
-  web: gunicorn app:app --bind 0.0.0.0:$PORT
+  web: gunicorn wsgi:app --bind 0.0.0.0:$PORT
   ```
 
 - **`requirements.txt`**: Lists all Python dependencies including `gunicorn` for production
 
-- **`app.py`**: Configured to use Railway's `PORT` environment variable and disable debug mode in production
+- **`wsgi.py`**: Configured to use Railway's `PORT` environment variable and disable debug mode in production
 
 ### Database Migration (Optional)
 
