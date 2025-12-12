@@ -118,14 +118,23 @@ def get_insights() -> Dict:
     
     time_consumed_distribution_dict = {int(time): count for time, count in time_consumed_distribution if time is not None}
     
+    # Count unique regions, sources, and destinations
+    regions_covered = len(region_distribution)
+    sources_covered = len(source_distribution)
+    destinations_covered = len(destination_distribution)
+    
     return {
         'total_sessions_reviewed': int(total_sessions),
         'total_customers': total_customers,
         'total_records': total_records,
         'duplicate_customers': duplicate_customers,
+        'duplicate_customers_count': len(duplicate_customers),
         'region_distribution': region_distribution,
+        'regions_covered': regions_covered,
         'source_distribution': source_distribution,
+        'sources_covered': sources_covered,
         'destination_distribution': destination_distribution,
+        'destinations_covered': destinations_covered,
         'uploads_by_date': uploads_by_date_data,
         'sessions_with_time_consumed': sessions_with_time,
         'time_consumed_distribution': time_consumed_distribution_dict,
