@@ -4,10 +4,11 @@ Flask application factory.
 
 from flask import Flask, jsonify, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate, upgrade
+from flask_migrate import Migrate
 from flask_login import LoginManager
 import os
 import logging
+import subprocess
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -103,14 +104,43 @@ def create_app():
             app.logger.info("🔒 Production mode: Using migrations for schema management")
             try:
                 app.logger.info("🔄 Applying database migrations...")
-                upgrade()
-                app.logger.info("✅ Database migrations applied successfully")
+                # Use subprocess to call flask db upgrade (most reliable method)
+                # This works because flask CLI commands are designed to be called this way
+                env = os.environ.copy()
+                env['FLASK_APP'] = 'wsgi.py'
+                
+                result = subprocess.run(
+                    ['flask', 'db', 'upgrade'],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    cwd=os.path.dirname(os.path.dirname(__file__))  # Go to project root
+                )
+                
+                if result.returncode == 0:
+                    app.logger.info("✅ Database migrations applied successfully")
+                    if result.stdout:
+                        app.logger.debug(f"Migration output: {result.stdout}")
+                else:
+                    error_msg = result.stderr or result.stdout or "Unknown error"
+                    app.logger.error(f"❌ Migration failed with return code {result.returncode}")
+                    app.logger.error(f"Error details: {error_msg}")
+                    raise Exception(f"Migration failed: {error_msg}")
+                    
+            except subprocess.TimeoutExpired:
+                app.logger.error("❌ Migration timed out after 60 seconds")
+                app.logger.warning("⚠️  Application will continue, but database may not be up to date")
+            except FileNotFoundError:
+                app.logger.error("❌ Flask CLI not found. Make sure Flask is installed.")
+                app.logger.warning("⚠️  Application will continue, but database may not be up to date")
             except Exception as e:
                 app.logger.error(f"❌ Error applying migrations: {e}")
+                import traceback
+                app.logger.error(f"Traceback: {traceback.format_exc()}")
                 app.logger.warning("⚠️  Application will continue, but database may not be up to date")
                 # Don't fail startup if migrations fail - log the error and continue
                 # This allows the app to start even if there are migration issues
         # In production, migrations handle schema
     
     return app
-
