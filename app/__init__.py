@@ -7,6 +7,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
 import os
+import logging
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -16,6 +17,23 @@ load_dotenv()
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
+
+# Data protection: Prevent accidental db.drop_all() in production
+_original_drop_all = db.drop_all
+
+def _safe_drop_all(*args, **kwargs):
+    """Protected version of drop_all that prevents accidental data loss."""
+    is_production = os.getenv('RAILWAY_ENVIRONMENT') == 'production'
+    if is_production:
+        raise RuntimeError(
+            "CRITICAL: db.drop_all() is disabled in production to prevent data loss. "
+            "Use migrations (flask db downgrade) instead."
+        )
+    logging.warning("db.drop_all() called in development mode - this will delete all data!")
+    return _original_drop_all(*args, **kwargs)
+
+# Override drop_all with safe version
+db.drop_all = _safe_drop_all
 
 
 @login_manager.user_loader
@@ -29,10 +47,24 @@ def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
     
+    # Configure logging
+    logging.basicConfig(level=logging.INFO)
+    app.logger.setLevel(logging.INFO)
+    
     # Configuration
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///customer_sessions.db')
+    database_url = os.getenv('DATABASE_URL', 'sqlite:///customer_sessions.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
+    # Validate environment variables
+    is_production = os.getenv('RAILWAY_ENVIRONMENT') == 'production'
+    if is_production:
+        if not database_url or database_url.startswith('sqlite:///'):
+            app.logger.warning("⚠️  Production environment detected but using SQLite - this is not recommended")
+        app.logger.info("🔒 Production mode: Database operations are protected")
+    else:
+        app.logger.info("🔧 Development mode: Database operations enabled")
     
     # Initialize extensions
     db.init_app(app)
@@ -55,9 +87,21 @@ def create_app():
     from app.routes import main_bp
     app.register_blueprint(main_bp)
     
-    # Create tables
+    # Only create tables in development (migrations handle production)
+    # CRITICAL: Never use db.create_all() in production to prevent data loss
     with app.app_context():
-        db.create_all()
+        is_production = os.getenv('RAILWAY_ENVIRONMENT') == 'production'
+        if not is_production:
+            try:
+                db.create_all()  # Safe for local dev
+                app.logger.info("✅ Database tables created (development mode)")
+            except Exception as e:
+                app.logger.error(f"❌ Error creating tables: {e}")
+                app.logger.info("💡 Tip: If tables already exist, this is normal. Use migrations for schema changes.")
+        else:
+            app.logger.info("🔒 Production mode: Using migrations for schema management")
+            app.logger.info("📋 To apply migrations, run: flask db upgrade")
+        # In production, migrations handle schema
     
     return app
 
