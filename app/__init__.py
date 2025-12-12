@@ -8,7 +8,6 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 import os
 import logging
-import subprocess
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -88,59 +87,15 @@ def create_app():
     from app.routes import main_bp
     app.register_blueprint(main_bp)
     
-    # Only create tables in development (migrations handle production)
-    # CRITICAL: Never use db.create_all() in production to prevent data loss
+    # Create database tables
+    # NOTE: db.create_all() is safe - it only creates tables that don't exist
+    # It does NOT drop tables or delete data. The unsafe operation is db.drop_all(),
+    # which is already protected above.
     with app.app_context():
-        is_production = os.getenv('RAILWAY_ENVIRONMENT') == 'production'
-        if not is_production:
-            try:
-                db.create_all()  # Safe for local dev
-                app.logger.info("✅ Database tables created (development mode)")
-            except Exception as e:
-                app.logger.error(f"❌ Error creating tables: {e}")
-                app.logger.info("💡 Tip: If tables already exist, this is normal. Use migrations for schema changes.")
-        else:
-            # Production mode: Automatically run migrations on startup
-            app.logger.info("🔒 Production mode: Using migrations for schema management")
-            try:
-                app.logger.info("🔄 Applying database migrations...")
-                # Use subprocess to call flask db upgrade (most reliable method)
-                # This works because flask CLI commands are designed to be called this way
-                env = os.environ.copy()
-                env['FLASK_APP'] = 'wsgi.py'
-                
-                result = subprocess.run(
-                    ['flask', 'db', 'upgrade'],
-                    env=env,
-                    capture_output=True,
-                    text=True,
-                    timeout=60,
-                    cwd=os.path.dirname(os.path.dirname(__file__))  # Go to project root
-                )
-                
-                if result.returncode == 0:
-                    app.logger.info("✅ Database migrations applied successfully")
-                    if result.stdout:
-                        app.logger.debug(f"Migration output: {result.stdout}")
-                else:
-                    error_msg = result.stderr or result.stdout or "Unknown error"
-                    app.logger.error(f"❌ Migration failed with return code {result.returncode}")
-                    app.logger.error(f"Error details: {error_msg}")
-                    raise Exception(f"Migration failed: {error_msg}")
-                    
-            except subprocess.TimeoutExpired:
-                app.logger.error("❌ Migration timed out after 60 seconds")
-                app.logger.warning("⚠️  Application will continue, but database may not be up to date")
-            except FileNotFoundError:
-                app.logger.error("❌ Flask CLI not found. Make sure Flask is installed.")
-                app.logger.warning("⚠️  Application will continue, but database may not be up to date")
-            except Exception as e:
-                app.logger.error(f"❌ Error applying migrations: {e}")
-                import traceback
-                app.logger.error(f"Traceback: {traceback.format_exc()}")
-                app.logger.warning("⚠️  Application will continue, but database may not be up to date")
-                # Don't fail startup if migrations fail - log the error and continue
-                # This allows the app to start even if there are migration issues
-        # In production, migrations handle schema
+        try:
+            db.create_all()
+            app.logger.info("✅ Database tables initialized successfully")
+        except Exception as e:
+            app.logger.error(f"❌ Error creating tables: {e}")
     
     return app
