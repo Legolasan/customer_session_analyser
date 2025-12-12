@@ -4,7 +4,7 @@ Flask application factory.
 
 from flask import Flask, jsonify, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+from flask_migrate import Migrate, upgrade
 from flask_login import LoginManager
 import os
 import logging
@@ -99,8 +99,17 @@ def create_app():
                 app.logger.error(f"❌ Error creating tables: {e}")
                 app.logger.info("💡 Tip: If tables already exist, this is normal. Use migrations for schema changes.")
         else:
+            # Production mode: Automatically run migrations on startup
             app.logger.info("🔒 Production mode: Using migrations for schema management")
-            app.logger.info("📋 To apply migrations, run: flask db upgrade")
+            try:
+                app.logger.info("🔄 Applying database migrations...")
+                upgrade()
+                app.logger.info("✅ Database migrations applied successfully")
+            except Exception as e:
+                app.logger.error(f"❌ Error applying migrations: {e}")
+                app.logger.warning("⚠️  Application will continue, but database may not be up to date")
+                # Don't fail startup if migrations fail - log the error and continue
+                # This allows the app to start even if there are migration issues
         # In production, migrations handle schema
     
     return app
