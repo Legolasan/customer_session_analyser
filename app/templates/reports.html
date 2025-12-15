@@ -34,6 +34,43 @@
         background-color: #f8f9fa;
         transition: background-color 0.2s;
     }
+    
+    /* Observation formatting styles */
+    .observation-formatted {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+    }
+    .observation-list {
+        list-style: none;
+        padding-left: 0;
+        margin: 0;
+    }
+    .observation-list li {
+        position: relative;
+        padding-left: 24px;
+        margin-bottom: 12px;
+        line-height: 1.6;
+        font-size: 0.95rem;
+    }
+    .observation-list li:last-child {
+        margin-bottom: 0;
+    }
+    .observation-list li::before {
+        content: "•";
+        position: absolute;
+        left: 0;
+        color: #667eea;
+        font-size: 1.2rem;
+        font-weight: bold;
+        line-height: 1.4;
+    }
+    .observation-single {
+        margin: 0;
+        line-height: 1.6;
+        font-size: 0.95rem;
+    }
 </style>
 {% endblock %}
 
@@ -194,7 +231,7 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Observation Details</h5>
+                <h5 class="modal-title">📝 Observation Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -204,9 +241,7 @@
                     </div>
                     <p class="mt-2 text-muted">Loading observation...</p>
                 </div>
-                <div id="observation-text" style="display: none;">
-                    <pre class="bg-light p-3 rounded" style="white-space: pre-wrap; word-wrap: break-word; font-family: inherit; font-size: 0.95rem; line-height: 1.6;"></pre>
-                </div>
+                <div id="observation-content" class="observation-formatted" style="display: none;"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -216,10 +251,47 @@
 </div>
 
 <script>
+    function formatObservation(text) {
+        if (!text || !text.trim()) {
+            return '<p class="text-muted">No observation provided.</p>';
+        }
+        
+        // Split by newlines and filter empty lines
+        const lines = text.split(/\n/).map(line => line.trim()).filter(line => line);
+        
+        if (lines.length === 0) {
+            return '<p class="text-muted">No observation provided.</p>';
+        }
+        
+        // If only one line, show as paragraph
+        if (lines.length === 1) {
+            return `<p class="observation-single">${escapeHtml(lines[0])}</p>`;
+        }
+        
+        // Multiple lines - format as bullet points
+        let html = '<ul class="observation-list">';
+        for (const line of lines) {
+            // Remove existing bullet markers (-, *, •) from the start
+            const cleanLine = line.replace(/^[-*•]\s*/, '').replace(/^\d+[.)]\s*/, '');
+            if (cleanLine) {
+                html += `<li>${escapeHtml(cleanLine)}</li>`;
+            }
+        }
+        html += '</ul>';
+        
+        return html;
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     function viewObservation(sessionId) {
         // Show loading state
         document.getElementById('observation-loading').style.display = 'block';
-        document.getElementById('observation-text').style.display = 'none';
+        document.getElementById('observation-content').style.display = 'none';
         
         // Show modal first
         var modal = new bootstrap.Modal(document.getElementById('observationModal'));
@@ -229,24 +301,19 @@
         fetch(`/api/sessions/${sessionId}`)
             .then(response => response.json())
             .then(data => {
-                // Hide loading, show observation
+                // Hide loading, show formatted observation
                 document.getElementById('observation-loading').style.display = 'none';
-                const observationText = document.querySelector('#observation-text pre');
+                const observationContent = document.getElementById('observation-content');
                 
-                if (data.observation && data.observation.trim()) {
-                    observationText.textContent = data.observation;
-                } else {
-                    observationText.textContent = 'No observation provided.';
-                }
-                
-                document.getElementById('observation-text').style.display = 'block';
+                observationContent.innerHTML = formatObservation(data.observation);
+                observationContent.style.display = 'block';
             })
             .catch(error => {
                 console.error('Error fetching observation:', error);
                 document.getElementById('observation-loading').style.display = 'none';
-                const observationText = document.querySelector('#observation-text pre');
-                observationText.textContent = 'Error loading observation. Please try again.';
-                document.getElementById('observation-text').style.display = 'block';
+                const observationContent = document.getElementById('observation-content');
+                observationContent.innerHTML = '<p class="text-danger">Error loading observation. Please try again.</p>';
+                observationContent.style.display = 'block';
             });
     }
 
