@@ -71,9 +71,20 @@ def form_upload():
         time_consumed = request.form.get('time_consumed', '').strip()
         observation = request.form.get('observation', '').strip()
         
+        # Get highlight fields
+        has_highlight = request.form.get('has_highlight') == 'on'
+        highlight_url = request.form.get('highlight_url', '').strip() if has_highlight else None
+        highlight_type = request.form.get('highlight_type', '').strip() if has_highlight else None
+        highlight_details = request.form.get('highlight_details', '').strip() if has_highlight else None
+        
         # Validate required fields
         if not all([customer, region, sessions, source, destination]):
             flash('Please fill in all required fields', 'error')
+            return redirect(url_for('main.input_page'))
+        
+        # Validate highlight type if highlight is checked
+        if has_highlight and not highlight_type:
+            flash('Please select a highlight type', 'error')
             return redirect(url_for('main.input_page'))
         
         try:
@@ -103,6 +114,10 @@ def form_upload():
             destination=destination,
             time_consumed=time_consumed_int,
             observation=observation,
+            has_highlight=has_highlight,
+            highlight_url=highlight_url if highlight_url else None,
+            highlight_type=highlight_type if highlight_type else None,
+            highlight_details=highlight_details if highlight_details else None,
             uploaded_at=datetime.utcnow()
         )
         

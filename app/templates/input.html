@@ -16,6 +16,12 @@
         margin-bottom: 20px;
         font-weight: 600;
     }
+    .form-section.highlight-section {
+        border-left-color: #ffc107;
+    }
+    .form-section.highlight-section h5 {
+        color: #856404;
+    }
     .form-label {
         font-weight: 500;
         color: #495057;
@@ -58,6 +64,53 @@
         font-size: 0.9rem;
         white-space: pre-wrap;
         border: 1px solid #dee2e6;
+    }
+    /* Highlight section styles */
+    .highlight-fields {
+        display: none;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px dashed #ffc107;
+    }
+    .highlight-fields.show {
+        display: block;
+        animation: slideDown 0.3s ease-out;
+    }
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .form-check-input:checked {
+        background-color: #ffc107;
+        border-color: #ffc107;
+    }
+    .highlight-checkbox-label {
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: #495057;
+        cursor: pointer;
+    }
+    .other-details {
+        display: none;
+        margin-top: 15px;
+    }
+    .other-details.show {
+        display: block;
+        animation: slideDown 0.2s ease-out;
+    }
+    .highlight-badge {
+        background: linear-gradient(135deg, #ffc107 0%, #ffca2c 100%);
+        color: #000;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        margin-left: 8px;
     }
 </style>
 {% endblock %}
@@ -167,6 +220,70 @@
                 </div>
             </div>
 
+            <!-- Highlights Section -->
+            <div class="form-section highlight-section">
+                <h5>⭐ Highlights</h5>
+                <div class="form-check form-switch">
+                    <input 
+                        class="form-check-input" 
+                        type="checkbox" 
+                        id="has_highlight" 
+                        name="has_highlight"
+                        style="width: 3em; height: 1.5em;"
+                    >
+                    <label class="form-check-label highlight-checkbox-label" for="has_highlight">
+                        Any Highlights?
+                    </label>
+                </div>
+                <div class="help-text mb-3">Check this if there's something notable about this customer session</div>
+                
+                <!-- Highlight Fields (shown when checkbox is checked) -->
+                <div class="highlight-fields" id="highlightFields">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="highlight_url" class="form-label">Jira/Zendesk URL</label>
+                            <input 
+                                type="url" 
+                                class="form-control" 
+                                id="highlight_url" 
+                                name="highlight_url" 
+                                placeholder="https://jira.example.com/browse/ISSUE-123"
+                            >
+                            <div class="help-text">Link to related Jira ticket or Zendesk case</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="highlight_type" class="form-label">Specifics</label>
+                            <select class="form-control" id="highlight_type" name="highlight_type">
+                                <option value="">Select type...</option>
+                                <option value="error_gap">Error Message Gap</option>
+                                <option value="error_wrong">Error Message Wrong</option>
+                                <option value="feature_request">Feature Request</option>
+                                <option value="wrong_behaviour">Not the right behaviour</option>
+                                <option value="other">Other</option>
+                            </select>
+                            <div class="help-text">Categorize the type of highlight</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Other Details (shown when "Other" is selected) -->
+                    <div class="other-details" id="otherDetails">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <label for="highlight_details" class="form-label">Additional Details</label>
+                                <textarea 
+                                    class="form-control" 
+                                    id="highlight_details" 
+                                    name="highlight_details" 
+                                    rows="3"
+                                    placeholder="Provide more details about this highlight..."
+                                ></textarea>
+                                <div class="help-text">Describe the highlight in more detail</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Observation Section -->
             <div class="form-section">
                 <h5>📝 Observation</h5>
@@ -196,7 +313,7 @@
                 <button type="submit" class="btn btn-primary btn-lg submit-btn">
                     <i class="bi bi-upload"></i> Submit Session Data
                 </button>
-                <button type="reset" class="btn btn-secondary btn-lg ms-3" onclick="resetPreview()">
+                <button type="reset" class="btn btn-secondary btn-lg ms-3" onclick="resetForm()">
                     <i class="bi bi-arrow-counterclockwise"></i> Reset Form
                 </button>
             </div>
@@ -205,8 +322,48 @@
 </div>
 
 <script>
+    // Highlight type labels for display
+    const highlightTypeLabels = {
+        'error_gap': 'Error Message Gap',
+        'error_wrong': 'Error Message Wrong',
+        'feature_request': 'Feature Request',
+        'wrong_behaviour': 'Not the right behaviour',
+        'other': 'Other'
+    };
+
+    // Toggle highlight fields visibility
+    const highlightCheckbox = document.getElementById('has_highlight');
+    const highlightFields = document.getElementById('highlightFields');
+    const highlightTypeSelect = document.getElementById('highlight_type');
+    const otherDetails = document.getElementById('otherDetails');
+
+    highlightCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            highlightFields.classList.add('show');
+        } else {
+            highlightFields.classList.remove('show');
+            // Clear highlight fields when unchecked
+            document.getElementById('highlight_url').value = '';
+            document.getElementById('highlight_type').value = '';
+            document.getElementById('highlight_details').value = '';
+            otherDetails.classList.remove('show');
+        }
+        updatePreview();
+    });
+
+    // Toggle "Other" details field
+    highlightTypeSelect.addEventListener('change', function() {
+        if (this.value === 'other') {
+            otherDetails.classList.add('show');
+        } else {
+            otherDetails.classList.remove('show');
+            document.getElementById('highlight_details').value = '';
+        }
+        updatePreview();
+    });
+
     // Update preview as user types
-    const formFields = ['customer', 'region', 'sessions', 'source', 'destination', 'time_consumed', 'observation'];
+    const formFields = ['customer', 'region', 'sessions', 'source', 'destination', 'time_consumed', 'observation', 'highlight_url', 'highlight_details'];
     
     formFields.forEach(fieldId => {
         const field = document.getElementById(fieldId);
@@ -224,6 +381,11 @@
         const destination = document.getElementById('destination').value || '[Destination]';
         const timeConsumed = document.getElementById('time_consumed').value || '';
         const observation = document.getElementById('observation').value || '[Observation notes...]';
+        
+        const hasHighlight = document.getElementById('has_highlight').checked;
+        const highlightUrl = document.getElementById('highlight_url').value;
+        const highlightType = document.getElementById('highlight_type').value;
+        const highlightDetails = document.getElementById('highlight_details').value;
 
         let preview = `Customer: ${customer}${timeConsumed ? ' [' + timeConsumed + ' mins]' : ''}
 Region: ${region}
@@ -235,14 +397,30 @@ Destination: ${destination}`;
             preview += `\nTime Consumed: ${timeConsumed} mins`;
         }
         
-        preview += `\nObservation: ${observation}`;
+        // Add highlight info if enabled
+        if (hasHighlight) {
+            preview += `\n\n⭐ HIGHLIGHT:`;
+            if (highlightType) {
+                preview += `\n  Type: ${highlightTypeLabels[highlightType] || highlightType}`;
+            }
+            if (highlightUrl) {
+                preview += `\n  URL: ${highlightUrl}`;
+            }
+            if (highlightType === 'other' && highlightDetails) {
+                preview += `\n  Details: ${highlightDetails}`;
+            }
+        }
+        
+        preview += `\n\nObservation: ${observation}`;
 
         document.getElementById('previewText').textContent = preview;
     }
 
-    function resetPreview() {
+    function resetForm() {
         setTimeout(() => {
             document.getElementById('previewText').textContent = 'Fill in the form above to see the preview...';
+            highlightFields.classList.remove('show');
+            otherDetails.classList.remove('show');
         }, 100);
     }
 
@@ -261,6 +439,18 @@ Destination: ${destination}`;
             }
         });
 
+        // Validate highlight fields if checkbox is checked
+        const hasHighlight = document.getElementById('has_highlight').checked;
+        if (hasHighlight) {
+            const highlightType = document.getElementById('highlight_type').value;
+            if (!highlightType) {
+                isValid = false;
+                document.getElementById('highlight_type').classList.add('is-invalid');
+            } else {
+                document.getElementById('highlight_type').classList.remove('is-invalid');
+            }
+        }
+
         if (!isValid) {
             e.preventDefault();
             alert('Please fill in all required fields.');
@@ -268,4 +458,3 @@ Destination: ${destination}`;
     });
 </script>
 {% endblock %}
-

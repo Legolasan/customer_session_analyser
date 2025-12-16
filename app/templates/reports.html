@@ -71,6 +71,37 @@
         line-height: 1.6;
         font-size: 0.95rem;
     }
+    
+    /* Highlight badge styles */
+    .highlight-badge {
+        background: linear-gradient(135deg, #ffc107 0%, #ffca2c 100%);
+        color: #000;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-left: 6px;
+        vertical-align: middle;
+    }
+    .highlight-type-badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+    }
+    .highlight-section-modal {
+        background: #fff8e1;
+        border-left: 4px solid #ffc107;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+    .highlight-section-modal h6 {
+        color: #856404;
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+    .highlight-url {
+        word-break: break-all;
+    }
 </style>
 {% endblock %}
 
@@ -189,6 +220,7 @@
                         <th>Source</th>
                         <th>Destination</th>
                         <th>Time Consumed</th>
+                        <th>Highlight</th>
                         <th>Uploaded At</th>
                         <th>Actions</th>
                     </tr>
@@ -209,9 +241,30 @@
                                 <span class="text-muted">-</span>
                             {% endif %}
                         </td>
+                        <td>
+                            {% if session.has_highlight %}
+                                <span class="badge highlight-type-badge bg-warning text-dark" title="{{ session.highlight_type }}">
+                                    {% if session.highlight_type == 'error_gap' %}
+                                        Error Gap
+                                    {% elif session.highlight_type == 'error_wrong' %}
+                                        Wrong Error
+                                    {% elif session.highlight_type == 'feature_request' %}
+                                        Feature Req
+                                    {% elif session.highlight_type == 'wrong_behaviour' %}
+                                        Wrong Behaviour
+                                    {% elif session.highlight_type == 'other' %}
+                                        Other
+                                    {% else %}
+                                        Highlight
+                                    {% endif %}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
                         <td>{{ session.uploaded_at.strftime('%Y-%m-%d %H:%M:%S') if session.uploaded_at else 'N/A' }}</td>
                         <td>
-                            <button class="btn btn-sm btn-info" onclick="viewObservation({{ session.id }})">
+                            <button class="btn btn-sm btn-info" onclick="viewDetails({{ session.id }})">
                                 View
                             </button>
                             <button class="btn btn-sm btn-danger" onclick="deleteSession({{ session.id }})">
@@ -226,22 +279,41 @@
     </div>
 </div>
 
-<!-- Observation Modal -->
-<div class="modal fade" id="observationModal" tabindex="-1">
+<!-- Session Details Modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">📝 Observation Details</h5>
+                <h5 class="modal-title">📋 Session Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div id="observation-loading" class="text-center py-3">
+                <div id="details-loading" class="text-center py-3">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
-                    <p class="mt-2 text-muted">Loading observation...</p>
+                    <p class="mt-2 text-muted">Loading details...</p>
                 </div>
-                <div id="observation-content" class="observation-formatted" style="display: none;"></div>
+                <div id="details-content" style="display: none;">
+                    <!-- Highlight Section (shown if has_highlight) -->
+                    <div id="highlight-section" class="highlight-section-modal" style="display: none;">
+                        <h6>⭐ Highlight</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Type:</strong> <span id="highlight-type-text"></span>
+                            </div>
+                            <div class="col-md-6" id="highlight-url-container" style="display: none;">
+                                <strong>URL:</strong> <a href="#" id="highlight-url-link" target="_blank" class="highlight-url"></a>
+                            </div>
+                        </div>
+                        <div id="highlight-details-container" class="mt-2" style="display: none;">
+                            <strong>Details:</strong> <span id="highlight-details-text"></span>
+                        </div>
+                    </div>
+                    
+                    <!-- Observation Section -->
+                    <div class="observation-formatted" id="observation-content"></div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -251,6 +323,15 @@
 </div>
 
 <script>
+    // Highlight type labels
+    const highlightTypeLabels = {
+        'error_gap': 'Error Message Gap',
+        'error_wrong': 'Error Message Wrong',
+        'feature_request': 'Feature Request',
+        'wrong_behaviour': 'Not the right behaviour',
+        'other': 'Other'
+    };
+
     function formatObservation(text) {
         if (!text || !text.trim()) {
             return '<p class="text-muted">No observation provided.</p>';
@@ -288,32 +369,66 @@
         return div.innerHTML;
     }
 
-    function viewObservation(sessionId) {
+    function viewDetails(sessionId) {
         // Show loading state
-        document.getElementById('observation-loading').style.display = 'block';
-        document.getElementById('observation-content').style.display = 'none';
+        document.getElementById('details-loading').style.display = 'block';
+        document.getElementById('details-content').style.display = 'none';
         
         // Show modal first
-        var modal = new bootstrap.Modal(document.getElementById('observationModal'));
+        var modal = new bootstrap.Modal(document.getElementById('detailsModal'));
         modal.show();
         
-        // Fetch full observation from API
+        // Fetch full session data from API
         fetch(`/api/sessions/${sessionId}`)
             .then(response => response.json())
             .then(data => {
-                // Hide loading, show formatted observation
-                document.getElementById('observation-loading').style.display = 'none';
-                const observationContent = document.getElementById('observation-content');
+                // Hide loading
+                document.getElementById('details-loading').style.display = 'none';
                 
+                // Handle highlight section
+                const highlightSection = document.getElementById('highlight-section');
+                if (data.has_highlight) {
+                    highlightSection.style.display = 'block';
+                    
+                    // Set highlight type
+                    const typeText = highlightTypeLabels[data.highlight_type] || data.highlight_type || 'Unknown';
+                    document.getElementById('highlight-type-text').textContent = typeText;
+                    
+                    // Set highlight URL if present
+                    const urlContainer = document.getElementById('highlight-url-container');
+                    if (data.highlight_url) {
+                        urlContainer.style.display = 'block';
+                        const urlLink = document.getElementById('highlight-url-link');
+                        urlLink.href = data.highlight_url;
+                        urlLink.textContent = data.highlight_url;
+                    } else {
+                        urlContainer.style.display = 'none';
+                    }
+                    
+                    // Set highlight details if present (for "other" type)
+                    const detailsContainer = document.getElementById('highlight-details-container');
+                    if (data.highlight_details) {
+                        detailsContainer.style.display = 'block';
+                        document.getElementById('highlight-details-text').textContent = data.highlight_details;
+                    } else {
+                        detailsContainer.style.display = 'none';
+                    }
+                } else {
+                    highlightSection.style.display = 'none';
+                }
+                
+                // Set observation content
+                const observationContent = document.getElementById('observation-content');
                 observationContent.innerHTML = formatObservation(data.observation);
-                observationContent.style.display = 'block';
+                
+                // Show content
+                document.getElementById('details-content').style.display = 'block';
             })
             .catch(error => {
-                console.error('Error fetching observation:', error);
-                document.getElementById('observation-loading').style.display = 'none';
-                const observationContent = document.getElementById('observation-content');
-                observationContent.innerHTML = '<p class="text-danger">Error loading observation. Please try again.</p>';
-                observationContent.style.display = 'block';
+                console.error('Error fetching session details:', error);
+                document.getElementById('details-loading').style.display = 'none';
+                document.getElementById('details-content').innerHTML = '<p class="text-danger">Error loading details. Please try again.</p>';
+                document.getElementById('details-content').style.display = 'block';
             });
     }
 
