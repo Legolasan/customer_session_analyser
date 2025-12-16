@@ -94,15 +94,55 @@ def create_app():
     from app.routes import main_bp
     app.register_blueprint(main_bp)
     
-    # Create database tables
-    # NOTE: db.create_all() is safe - it only creates tables that don't exist
-    # It does NOT drop tables or delete data. The unsafe operation is db.drop_all(),
-    # which is already protected above.
+    # Create database tables and add any missing columns
     with app.app_context():
         try:
+            # First, create any missing tables
             db.create_all()
             app.logger.info("✅ Database tables initialized successfully")
+            
+            # Check and add missing columns for schema updates
+            _add_missing_columns(app, db)
+            
         except Exception as e:
-            app.logger.error(f"❌ Error creating tables: {e}")
+            app.logger.error(f"❌ Error initializing database: {e}")
     
     return app
+
+
+def _add_missing_columns(app, db):
+    """Add missing columns to existing tables (for schema updates without migrations)."""
+    from sqlalchemy import inspect, text
+    
+    try:
+        inspector = inspect(db.engine)
+        
+        # Check if customer_sessions table exists
+        if 'customer_sessions' not in inspector.get_table_names():
+            return  # Table doesn't exist yet, db.create_all() will handle it
+        
+        # Get existing columns
+        existing_columns = {col['name'] for col in inspector.get_columns('customer_sessions')}
+        
+        # Define new columns that might need to be added
+        new_columns = {
+            'has_highlight': 'BOOLEAN DEFAULT FALSE',
+            'highlight_url': 'VARCHAR(500)',
+            'highlight_type': 'VARCHAR(100)',
+            'highlight_details': 'TEXT',
+        }
+        
+        # Add missing columns
+        for column_name, column_def in new_columns.items():
+            if column_name not in existing_columns:
+                try:
+                    with db.engine.connect() as conn:
+                        conn.execute(text(f'ALTER TABLE customer_sessions ADD COLUMN {column_name} {column_def}'))
+                        conn.commit()
+                    app.logger.info(f"✅ Added missing column: {column_name}")
+                except Exception as e:
+                    # Column might already exist or other error
+                    app.logger.warning(f"⚠️  Could not add column {column_name}: {e}")
+                    
+    except Exception as e:
+        app.logger.error(f"❌ Error checking/adding columns: {e}")
